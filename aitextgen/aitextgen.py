@@ -114,7 +114,8 @@ class aitextgen:
                 "transformers.modeling_gpt2",
             ]:
                 logging.getLogger(module).setLevel(logging.WARN)
-            logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
+            logging.getLogger(
+                "transformers.modeling_utils").setLevel(logging.ERROR)
 
         if tf_gpt2:
             self.openai_tf_gpt2 = tf_gpt2
@@ -189,9 +190,11 @@ class aitextgen:
         else:
             # Download and cache model from Huggingface
             if os.path.isdir(cache_dir) and len(os.listdir(cache_dir)) > 0:
-                logger.info(f"Loading {model or 'gpt2'} model from /{cache_dir}.")
+                logger.info(
+                    f"Loading {model or 'gpt2'} model from /{cache_dir}.")
             else:
-                logger.info(f"Downloading {model or 'gpt2'} model to /{cache_dir}.")
+                logger.info(
+                    f"Downloading {model or 'gpt2'} model to /{cache_dir}.")
             self.model = AutoModelForCausalLM.from_pretrained(
                 model or "gpt2", cache_dir=cache_dir
             )
@@ -322,14 +325,16 @@ class aitextgen:
             ), f"The prompt is too large for the model. ({prompt_num_tokens} tokens)"
 
         input_ids = (
-            prompt_tensors["input_ids"].to(self.get_device()) if prompt else None
+            prompt_tensors["input_ids"].to(
+                self.get_device()) if prompt else None
         )
 
         if prepend_bos is None:
             prepend_bos = getattr(self.model.config, "line_by_line", None)
 
         if prepend_bos:
-            bos = torch.tensor([[self.tokenizer.bos_token_id]]).to(self.get_device())
+            bos = torch.tensor([[self.tokenizer.bos_token_id]]).to(
+                self.get_device())
             if prompt:
                 input_ids = torch.cat((bos, input_ids), dim=1)
             else:
@@ -363,8 +368,10 @@ class aitextgen:
             # Schema token handling
             if schema:
                 schema_tokens = getattr(self.model.config, "schema_tokens")
-                schema_return = getattr(self.model.config, "schema_return", None)
-                schema_tokens_enc = self.tokenizer(text=schema_tokens)["input_ids"]
+                schema_return = getattr(
+                    self.model.config, "schema_return", None)
+                schema_tokens_enc = self.tokenizer(
+                    text=schema_tokens)["input_ids"]
 
                 nonalphanum_pattern = re.compile(r"[\W_]+", re.UNICODE)
 
@@ -375,7 +382,8 @@ class aitextgen:
 
                     # Get indices of each schema token within the text
                     schema_token_indices = [
-                        (schema_tokens[i], find_index_of_subset(output, token_enc))
+                        (schema_tokens[i], find_index_of_subset(
+                            output, token_enc))
                         for i, token_enc in enumerate(schema_tokens_enc)
                     ]
 
@@ -433,7 +441,8 @@ class aitextgen:
 
                 # Handle stripping tokenization spaces w/ regex
                 if lstrip:
-                    gen_texts = [re.sub(r"^\s+", "", text) for text in gen_texts]
+                    gen_texts = [re.sub(r"^\s+", "", text)
+                                 for text in gen_texts]
 
                 if nonempty_output:
                     if min_length:
@@ -441,7 +450,8 @@ class aitextgen:
                             filter(lambda x: len(x) > min_length, gen_texts)
                         )
                     else:
-                        gen_texts = list(filter(lambda x: len(x) > 0, gen_texts))
+                        gen_texts = list(
+                            filter(lambda x: len(x) > 0, gen_texts))
 
                 # if there is no generated text after cleanup, try again.
                 if len(gen_texts) == 0:
@@ -455,7 +465,8 @@ class aitextgen:
                     if prompt:
                         # Bold the prompt if printing to console
                         gen_texts = [
-                            text.replace(prompt_text, f"\033[1m{prompt_text}\033[0m", 1)
+                            text.replace(
+                                prompt_text, f"\033[1m{prompt_text}\033[0m", 1)
                             for text in gen_texts
                         ]
 
@@ -486,7 +497,8 @@ class aitextgen:
 
         for temperature in temperatures:
             print("#" * 20 + f"\nTemperature: {temperature}\n" + "#" * 20)
-            self.generate(n=n, temperature=temperature, return_as_list=False, **kwargs)
+            self.generate(n=n, temperature=temperature,
+                          return_as_list=False, **kwargs)
 
     def generate_to_file(
         self,
@@ -536,7 +548,8 @@ class aitextgen:
         f = open(destination_path, "w", encoding="utf-8")
 
         for _ in range(n // batch_size):
-            gen_texts = self.generate(n=batch_size, return_as_list=True, **kwargs)
+            gen_texts = self.generate(
+                n=batch_size, return_as_list=True, **kwargs)
 
             for gen_text in gen_texts:
                 f.write("{}\n{}".format(gen_text, sample_delim))
@@ -675,7 +688,8 @@ class aitextgen:
         )
 
         # Wrap the model in a pytorch-lightning module
-        train_model = ATGTransformer(self.model, train_data, hparams, self.tokenizer)
+        train_model = ATGTransformer(
+            self.model, train_data, hparams, self.tokenizer)
 
         # Begin training
         if seed:
@@ -703,7 +717,8 @@ class aitextgen:
             deepspeed_plugin = DeepSpeedPlugin()
             logger.info("Using DeepSpeed training.")
             if not fp16:
-                logger.info("Setting FP16 to True for DeepSpeed ZeRO Training.")
+                logger.info(
+                    "Setting FP16 to True for DeepSpeed ZeRO Training.")
                 fp16 = True
 
         train_params = dict(
@@ -730,25 +745,25 @@ class aitextgen:
                     num_layers_freeze,
                 )
             ],
-            plugins=deepspeed_plugin,
+            # plugins=deepspeed_plugin,
         )
 
         if fp16:
             train_params["precision"] = 16 if fp16 else 32
             train_params["amp_level"] = fp16_opt_level
-            train_params["amp_backend"] ="apex"
+            train_params["amp_backend"] = "apex"
 
         if tpu_cores > 0:
             train_params["accelerator"] = 'tpu'
             train_params["tpu_cores"] = tpu_cores
             train_params["gpus"] = 0
             # pytorch_lightning issue #10017
-            train_params["plugins"] = None
-            if strategy is None:
-                train_params["strategy"] = "ddp"
-            else:
-                train_params["strategy"] = strategy
-            n_gpu = 0
+            #train_params["plugins"] = None
+            #if strategy is None:
+            #    train_params["strategy"] = "ddp"
+            #else:
+            #    train_params["strategy"] = strategy
+            #n_gpu = 0
 
         # benchmark gives a boost for GPUs if input size is constant,
         # which will always be the case with aitextgen training
@@ -758,11 +773,12 @@ class aitextgen:
         if n_gpu != 0:
             train_params["accelerator"] = 'gpu'
             # pytorch_lightning issue #10017
-            train_params["plugins"] = None
             if strategy is None:
                 train_params["strategy"] = "dp"
             else:
                 train_params["strategy"] = strategy
+
+        logger.info(f"Training config: {train_params}")
 
         trainer = pl.Trainer(**train_params)
         trainer.fit(train_model)
@@ -808,10 +824,12 @@ class aitextgen:
         ]
 
         if not isinstance(learning_rate, list):
-            learning_rate = [learning_rate / (2 ** x) for x in range(len(datasets))]
+            learning_rate = [learning_rate / (2 ** x)
+                             for x in range(len(datasets))]
 
         if not isinstance(num_steps, list):
-            num_steps = [int(num_steps / (2 ** x)) for x in range(len(datasets))]
+            num_steps = [int(num_steps / (2 ** x))
+                         for x in range(len(datasets))]
 
         assert len(datasets) == len(learning_rate) == len(num_steps), (
             "The provided learning_rates or num_steps"
@@ -819,7 +837,8 @@ class aitextgen:
         )
 
         for i, dataset in enumerate(datasets):
-            logger.info(f"Now training on {dataset} for {num_steps[i]:,} steps.")
+            logger.info(
+                f"Now training on {dataset} for {num_steps[i]:,} steps.")
             self.train(
                 dataset,
                 learning_rate=learning_rate[i],
@@ -876,6 +895,7 @@ class aitextgen:
 
     def __repr__(self) -> str:
         # https://discuss.pytorch.org/t/how-do-i-check-the-number-of-parameters-of-a-model/4325/24
-        num_params_m = int(sum(p.numel() for p in self.model.parameters()) / 10 ** 6)
+        num_params_m = int(sum(p.numel()
+                           for p in self.model.parameters()) / 10 ** 6)
         model_name = type(self.model.config).__name__.replace("Config", "")
         return f"{model_name} loaded with {num_params_m}M parameters."
