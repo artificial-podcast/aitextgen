@@ -752,7 +752,7 @@ class aitextgen:
         if is_gpu_used and benchmark:
             train_params["benchmark"] = True
 
-        if n_gpu > 1:
+        if n_gpu != 0:
             # pytorch_lightning issue #10017
             if strategy is None:
                 train_params["strategy"] = "dp"
