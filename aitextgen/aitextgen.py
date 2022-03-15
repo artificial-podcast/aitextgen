@@ -739,6 +739,7 @@ class aitextgen:
             train_params["amp_backend"] ="apex"
 
         if tpu_cores > 0:
+            train_params["accelerator"] = 'tpu'
             train_params["tpu_cores"] = tpu_cores
             train_params["gpus"] = 0
             # pytorch_lightning issue #10017
@@ -755,6 +756,7 @@ class aitextgen:
             train_params["benchmark"] = True
 
         if n_gpu != 0:
+            train_params["accelerator"] = 'gpu'
             # pytorch_lightning issue #10017
             train_params["plugins"] = None
             if strategy is None:
