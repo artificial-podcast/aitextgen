@@ -556,6 +556,7 @@ class aitextgen:
         fp16_opt_level: str = "O1",
         n_gpu: int = -1,
         tpu_cores: int = 0,
+        strategy: str = None,
         max_grad_norm: float = 0.5,
         gradient_accumulation_steps: int = 1,
         seed: int = None,
@@ -591,6 +592,7 @@ class aitextgen:
         :param fp16_opt_level: Option level for FP16/APEX training.
         :param n_gpu: Number of GPU to use (-1 implies all available GPUs)
         :param tpu_cores: Number of TPU cores to use (should be a multiple of 8)
+        :param strategy: Lightning allows multiple ways of training (dp,ddp,ddp_spawn,ddp2,horovod)
         :param max_grad_norm: Maximum gradient normalization
         :param gradient_accumulation_steps: Number of gradient acc steps
         :param seed: Interger representing the training seed.
@@ -738,6 +740,11 @@ class aitextgen:
         if tpu_cores > 0:
             train_params["tpu_cores"] = tpu_cores
             train_params["gpus"] = 0
+            # pytorch_lightning issue #10017
+            if strategy is None:
+                train_params["strategy"] = "ddp"
+            else:
+                train_params["strategy"] = strategy
             n_gpu = 0
 
         # benchmark gives a boost for GPUs if input size is constant,
@@ -746,7 +753,11 @@ class aitextgen:
             train_params["benchmark"] = True
 
         if n_gpu > 1:
-            train_params["distributed_backend"] = "ddp"
+            # pytorch_lightning issue #10017
+            if strategy is None:
+                train_params["strategy"] = "dp"
+            else:
+                train_params["strategy"] = strategy
 
         trainer = pl.Trainer(**train_params)
         trainer.fit(train_model)
