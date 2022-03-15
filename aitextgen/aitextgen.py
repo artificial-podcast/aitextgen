@@ -11,7 +11,7 @@ from typing import List, Optional, Union
 import pytorch_lightning as pl
 import torch
 from pkg_resources import resource_filename
-from pytorch_lightning.plugins import DeepSpeedPlugin
+from pytorch_lightning.plugins import DeepSpeedPlugin, DDPPlugin
 from tqdm.auto import trange
 from transformers import (
     AutoConfig,
@@ -698,13 +698,18 @@ class aitextgen:
             n_gpu = 1
 
         # use the DeepSpeed plugin if installed and specified
-        deepspeed_plugin = None
-        if is_gpu_used and use_deepspeed:
-            deepspeed_plugin = DeepSpeedPlugin()
-            logger.info("Using DeepSpeed training.")
-            if not fp16:
-                logger.info("Setting FP16 to True for DeepSpeed ZeRO Training.")
-                fp16 = True
+        a_plugin = None
+        if is_gpu_used:
+            if use_deepspeed:
+                a_plugin = DeepSpeedPlugin()
+                logger.info("Using DeepSpeed training.")
+                if not fp16:
+                    logger.info("Setting FP16 to True for DeepSpeed ZeRO Training.")
+                    fp16 = True
+            else:
+                if strategy == "ddp":
+                    a_plugin = DDPPlugin(find_unused_parameters=False)
+
 
         train_params = dict(
             accumulate_grad_batches=gradient_accumulation_steps,
@@ -730,7 +735,7 @@ class aitextgen:
                     num_layers_freeze,
                 )
             ],
-            plugins=deepspeed_plugin,
+            plugins=a_plugin,
         )
 
         if fp16:
